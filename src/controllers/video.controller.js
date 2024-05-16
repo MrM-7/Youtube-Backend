@@ -73,22 +73,125 @@ const publishAVideo = asyncHandler(async (req, res) => {
 
 const getVideoById = asyncHandler(async (req, res) => {
     const { videoId } = req.params
-    //TODO: get video by id
+
+    if(!videoId){
+        throw new ApiError(400, "Video ID is required")
+    }
+
+    const video = await Video.findById(videoId)
+
+    if(!video){
+        throw new ApiError(404, "Video not found")
+    }
+
+    res
+    .status(200)
+    .json(new ApiResponse(200, video, "Video fetched successfully"))
 })
 
 const updateVideo = asyncHandler(async (req, res) => {
     const { videoId } = req.params
-    //TODO: update video details like title, description, thumbnail
+
+    if(!videoId){
+        throw new ApiError(400, "Video ID is required")
+    }
+
+    const { title, description } = req.body
+
+    if(!title || !description){
+        throw new ApiError(400, "Title and description are required")
+    }
+
+    let thumbnailLocation = req.file?.path
+
+    if(!thumbnailLocation){
+        throw new ApiError(400, "Thumbnail file is required")
+    }
+
+    // todo: delete previous image from cloudinary
+
+    const thumbnail = await uploadOnCloudinary(thumbnailLocation)
+
+    if(!thumbnail){
+        throw new ApiError(500, "Error while uploading thumbnail file")
+    }
+
+    const video = await Video.findByIdAndUpdate(videoId,
+        {
+            $set: {
+                title,
+                description,
+                thumbnail: thumbnail?.url
+            }
+        },
+        { new: true }
+    )
+
+    if(!video){
+        throw new ApiError(500, "Something went wrong while updating the video")
+    }
+
+    res
+    .status(200)
+    .json(new ApiResponse(200, video, "Video updated successfully"))
 
 })
 
 const deleteVideo = asyncHandler(async (req, res) => {
     const { videoId } = req.params
-    //TODO: delete video
+    if(!videoId){
+        throw new ApiError(400, "Video ID is required")
+    }
+
+    const video = await Video.findByIdAndDelete(videoId) // returns null if doc not found
+
+    if(!video){ 
+        throw new ApiError(404, "Video not found")
+    }
+
+    res
+    .status(200)
+    .json(new ApiResponse(200, {}, "Video deleted successfully"))
 })
 
 const togglePublishStatus = asyncHandler(async (req, res) => {
     const { videoId } = req.params
+
+    if(!videoId){
+        throw new ApiError(400, "Video ID is required")
+    }
+
+    const publishStatus = await Video.aggregate([
+        {
+            $match: { _id: new mongoose.Types.ObjectId(videoId) }
+        },
+        {
+            $project: {
+                isPublished: 1
+            }
+        }
+    ])
+
+    if(!publishStatus || !(publishStatus.length>0)){
+        throw new ApiError(404, "Video not found")
+    }
+
+    const isPublished = publishStatus[0]?.isPublished
+
+    const video = await Video.findByIdAndUpdate(videoId,
+        {
+            $set: { isPublished: !isPublished }                                          
+        },
+        { new: true }
+    )
+
+    if(!video){
+        throw new ApiError(500, "Something went wrong while changing the publish status")
+    }
+
+    res
+    .status(200)
+    .json(new ApiResponse(200, video, "publish status updated"))
 })
 
 export {
