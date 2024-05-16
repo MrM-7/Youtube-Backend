@@ -78,6 +78,10 @@ const getVideoById = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Video ID is required")
     }
 
+    if(!isValidObjectId(videoId)){
+        throw new ApiError(400, "Video ID is invalid")
+    }
+
     const video = await Video.findById(videoId)
 
     if(!video){
@@ -94,6 +98,10 @@ const updateVideo = asyncHandler(async (req, res) => {
 
     if(!videoId){
         throw new ApiError(400, "Video ID is required")
+    }
+
+    if(!isValidObjectId(videoId)){
+        throw new ApiError(400, "Video ID is invalid")
     }
 
     const { title, description } = req.body
@@ -143,6 +151,10 @@ const deleteVideo = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Video ID is required")
     }
 
+    if(!isValidObjectId(videoId)){
+        throw new ApiError(400, "Video ID is invalid")
+    }
+
     const video = await Video.findByIdAndDelete(videoId) // returns null if doc not found
 
     if(!video){ 
@@ -159,6 +171,10 @@ const togglePublishStatus = asyncHandler(async (req, res) => {
 
     if(!videoId){
         throw new ApiError(400, "Video ID is required")
+    }
+
+    if(!isValidObjectId(videoId)){
+        throw new ApiError(400, "Video ID is invalid")
     }
 
     const publishStatus = await Video.aggregate([
