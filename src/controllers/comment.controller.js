@@ -7,7 +7,8 @@ import {asyncHandler} from "../utils/asyncHandler.js"
 const getVideoComments = asyncHandler(async (req, res) => {
     //TODO: get all comments for a video
     const { videoId } = req.params
-    // const {page = 1, limit = 10} = req.query
+
+    // const {page = 1, limit = 10} = req.query  ---- will implement later
 
     if(!videoId){
         throw new ApiError(400, "Video ID is required")
@@ -32,7 +33,9 @@ const getVideoComments = asyncHandler(async (req, res) => {
     ])
 
     console.log(comments);
-    res.send("han bhai hai tere bhai ke pass 11 hazar")
+    res
+    .status(200)
+    .json(new ApiResponse(200, comments, "Comment fetched successfully"))
 })
 
 const addComment = asyncHandler(async (req, res) => {
@@ -46,7 +49,7 @@ const addComment = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Video ID is invalid")
     }
 
-    console.log(req);
+    console.log(req.body);
 
     const { content } = req.body
 
