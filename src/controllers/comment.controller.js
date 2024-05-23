@@ -5,10 +5,9 @@ import {ApiResponse} from "../utils/ApiResponse.js"
 import {asyncHandler} from "../utils/asyncHandler.js"
 
 const getVideoComments = asyncHandler(async (req, res) => {
-    //TODO: get all comments for a video
     const { videoId } = req.params
 
-    // const {page = 1, limit = 10} = req.query  ---- will implement later
+    const {page = 1, limit = 10} = req.query 
 
     if(!videoId){
         throw new ApiError(400, "Video ID is required")
@@ -18,21 +17,82 @@ const getVideoComments = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Video ID is invalid")
     }
 
-    const comments = await Comment.aggregate([
+    const getComments = Comment.aggregate([
         {
-            $match: {
-                video: new mongoose.Types.ObjectId(videoId)
-            }
+          $match: {
+            video: new mongoose.Types.ObjectId(videoId),
+          },
         },
         {
-            $project: {
-                content: 1,
-                owner: 1
-            }
-        }
-    ])
-
-    console.log(comments);
+          $lookup: {
+            from: "users",
+            localField: "owner",
+            foreignField: "_id",
+            as: "owners",
+          },
+        },
+        {
+          $lookup: {
+            from: "likes",
+            localField: "_id",
+            foreignField: "comment",
+            as: "likes",
+          },
+        },
+        {
+          $addFields: {
+            likesCount: {
+              $size: "$likes",
+            },
+            owner: {
+              $first: "$owners",
+            },
+            isLiked: {
+              $cond: {
+                if: {
+                  $in: [req.user?._id, "$likes.likedBy"],
+                },
+                then: true,
+                else: false,
+              },
+            },
+          },
+        },
+        {
+          $sort: {
+            createdAt: -1,
+          },
+        },
+        {
+          $project: {
+            content: 1,
+            createdAt: 1,
+            likesCount: 1,
+            owner: {
+                fullName: 1,
+                username: 1,
+                avatar: 1
+            },
+            isLiked: 1,
+          },
+        },
+    ]);
+    
+    if (!getComments) {
+        throw new ApiError(500, "Error while loading getComments section");
+    }
+    
+    const options = {
+        page: parseInt(page, 10),
+        limit: parseInt(limit, 10),
+    };
+    
+    const comments = await Comment.aggregatePaginate(getComments, options);
+    
+    if (!comments) {
+        throw new ApiError(500, "Error while loading comments section");
+    }
+    
     res
     .status(200)
     .json(new ApiResponse(200, comments, "Comment fetched successfully"))
@@ -84,7 +144,6 @@ const updateComment = asyncHandler(async (req, res) => {
     }
 
     const { content } = req.body
-    console.log(content);
 
     if(!content){
         throw new ApiError(400, "Content is required")
