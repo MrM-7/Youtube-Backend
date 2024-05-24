@@ -114,8 +114,6 @@ const toggleTweetLike = asyncHandler(async (req, res) => {
 
 const getLikedVideos = asyncHandler(async (req, res) => {
 
-    // not completed
-
     const videos = await Like.aggregate([
         {
             $match: {
@@ -123,26 +121,57 @@ const getLikedVideos = asyncHandler(async (req, res) => {
                 comment: null,
                 tweet: null
             }
+        },
+        {
+            $lookup: {
+                from: "videos",
+                localField: "video",
+                foreignField: "_id",
+                as: "likedVideo"
+            }
+        },
+        {
+            $unwind: "$likedVideo"
+        },
+        {
+            $lookup: {
+                from: "users",
+                localField: "likedVideo.owner",
+                foreignField: "_id",
+                as: "ownerDetails"
+            }
+        },
+        {
+            $unwind: "$ownerDetails"
+        },
+        {
+            $sort: {
+                createdAt: -1
+            }
+        },
+        {
+            $project: {
+                _id: 0,
+                videoFile: "$likedVideo.videoFile",
+                thumbnail: "$likedVideo.thumbnail",
+                title: "$likedVideo.title",
+                description: "$likedVideo.description",
+                duration: "$likedVideo.duration",
+                views: "$likedVideo.views",
+                createdAt: "$likedVideo.createdAt",
+                owner: {
+                    username: "$ownerDetails.username",
+                    fullName: "$ownerDetails.fullName",
+                    avatar: "$ownerDetails.avatar"
+                }
+            }
         }
-    ])
+    ]);
 
     if(videos.length > 0){
-
-        console.log(videos);
-
-        const likedVideos = videos.map((video) => {
-            return Video.aggregate([
-                {
-                    $match: {
-                        _id: video.video
-                    }
-                }
-            ])
-        })
-
         res
         .status(200)
-        .json(new ApiResponse(200, likedVideos, "Liked videos fetched successfully"))
+        .json(new ApiResponse(200, videos, "Liked videos fetched successfully"))
     } else { 
         res
         .status(404)
